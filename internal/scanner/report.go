@@ -1,51 +1,50 @@
 package scanner
 
-import (
-	"fmt"
-	"io"
-	"sort"
-)
+import "fmt"
 
-// UsageReport summarises which env keys are used and which are unused.
-type UsageReport struct {
-	Used   []string
-	Unused []string
+// Report summarises which env keys were found in source files.
+type Report struct {
+	// Refs maps each env key to the list of file:line locations where it appears.
+	Refs map[string][]string
 }
 
-// BuildReport cross-references envKeys against scanner Results to produce
-// a UsageReport.
-func BuildReport(envKeys []string, results []Result) UsageReport {
-	usedSet := make(map[string]struct{})
-	for _, r := range results {
-		for _, ref := range r.Refs {
-			usedSet[ref] = struct{}{}
-		}
+// NewReport constructs a Report from a pre-built refs map.
+func NewReport(refs map[string][]string) *Report {
+	if refs == nil {
+		refs = make(map[string][]string)
 	}
-
-	var used, unused []string
-	for _, k := range envKeys {
-		if _, ok := usedSet[k]; ok {
-			used = append(used, k)
-		} else {
-			unused = append(unused, k)
-		}
-	}
-
-	sort.Strings(used)
-	sort.Strings(unused)
-
-	return UsageReport{Used: used, Unused: unused}
+	return &Report{Refs: refs}
 }
 
-// Print writes a human-readable summary of the report to w.
-func (r UsageReport) Print(w io.Writer) {
-	fmt.Fprintf(w, "Used variables (%d):\n", len(r.Used))
-	for _, k := range r.Used {
-		fmt.Fprintf(w, "  ✔ %s\n", k)
+// IsUsed returns true if the given key appears at least once in the scanned sources.
+func (r *Report) IsUsed(key string) bool {
+	locs, ok := r.Refs[key]
+	return ok && len(locs) > 0
+}
+
+// Unused returns all keys from the provided slice that are NOT present in the report.
+func (r *Report) Unused(keys []string) []string {
+	var out []string
+	for _, k := range keys {
+		if !r.IsUsed(k) {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// BuildReport constructs a Report by scanning the given directory for references
+// to the provided env keys.
+func BuildReport(dir string, keys []string) (*Report, error) {
+	s, err := New(dir)
+	if err != nil {
+		return nil, fmt.Errorf("creating scanner: %w", err)
 	}
 
-	fmt.Fprintf(w, "\nUnused variables (%d):\n", len(r.Unused))
-	for _, k := range r.Unused {
-		fmt.Fprintf(w, "  ✘ %s\n", k)
+	refs, err := s.ScanDir(keys)
+	if err != nil {
+		return nil, fmt.Errorf("scanning directory: %w", err)
 	}
+
+	return NewReport(refs), nil
 }
