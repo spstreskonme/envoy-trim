@@ -1,6 +1,7 @@
 package reporter
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -68,6 +69,31 @@ func printText(report *scanner.Report, w io.Writer, verbose bool) error {
 		for _, k := range used {
 			fmt.Fprintf(w, "  + %s\n", k)
 		}
+	}
+	return nil
+}
+
+// jsonReport is the structure used for JSON-formatted output.
+type jsonReport struct {
+	TotalKeys int      `json:"total_keys"`
+	Used      []string `json:"used"`
+	Unused    []string `json:"unused"`
+}
+
+func printJSON(report *scanner.Report, w io.Writer) error {
+	unused := sortedKeys(report.Unused)
+	used := sortedKeys(report.Used)
+
+	payload := jsonReport{
+		TotalKeys: len(used) + len(unused),
+		Used:      used,
+		Unused:    unused,
+	}
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(payload); err != nil {
+		return fmt.Errorf("reporter: failed to encode JSON: %w", err)
 	}
 	return nil
 }
