@@ -61,3 +61,19 @@ func FormatJSON(w io.Writer, results []Result) error {
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
 }
+
+// Summary returns a one-line string summarising the total number of errors and
+// warnings across all results, e.g. "3 error(s), 5 warning(s)".
+func Summary(results []Result) string {
+	var errors, warnings int
+	for _, r := range results {
+		for _, iss := range r.Issues {
+			if iss.Severity == "error" {
+				errors++
+			} else {
+				warnings++
+			}
+		}
+	}
+	return fmt.Sprintf("%d error(s), %d warning(s)", errors, warnings)
+}
