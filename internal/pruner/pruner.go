@@ -15,6 +15,15 @@ type Result struct {
 	DryRun  bool
 }
 
+// Summary returns a human-readable summary of the prune result.
+func (r *Result) Summary() string {
+	mode := "applied"
+	if r.DryRun {
+		mode = "dry-run"
+	}
+	return fmt.Sprintf("[%s] removed: %d, kept: %d", mode, len(r.Removed), len(r.Kept))
+}
+
 // Prune removes unused keys from the given env file based on the report.
 // If dryRun is true, no changes are written to disk.
 func Prune(envFilePath string, report *scanner.Report, dryRun bool) (*Result, error) {
